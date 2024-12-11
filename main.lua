@@ -3,6 +3,14 @@
 --
 
 local hashlinkVersion = -1
+local memoContent = {}
+local memoPlayers = {}
+local function_list = {}
+local queueMembers = {}
+local changeAddr = -1
+local changeAddr1 = -1
+local changeAddr2 = -1
+local changeAddr3 = -1
 
 function convertAddressToScanData(address)
     local addr = tonumber(address, 16)
@@ -194,11 +202,11 @@ local function attachToProcess()
             return false
         end
     end
+
     return false
 end
 
-function getChangeAddress(function_address)
-    
+function UpdateFunctionList()
     local hlboot_address, error = findHlbootdatAddress()
     if not hlboot_address then
         showMessage(error)
@@ -212,8 +220,12 @@ function getChangeAddress(function_address)
     end
 
     local nfunctions = getHashlinkNfunctions(structure_address)
-    local function_list = getListOfFunctions(structure_address, nfunctions)
+    function_list = getListOfFunctions(structure_address, nfunctions)
 
+    UDF1.CEEdit1.Text = "Function list updated"
+end
+
+function getChangeAddress(function_address)
     -- fn setCheckedJoin@26175 (ui.win.LobbyFinderWaiting, bool) -> void (7 regs, 12 ops)
     local function_address = function_list[26175 + 1]
     local MOV_OFFSET = 0xf
@@ -222,15 +234,8 @@ function getChangeAddress(function_address)
     return change_addr
 end
 
-local changeAddr = -1
-
 function UDF1_CECheckbox1Change(sender)
     if sender.Checked then
-        if not attachToProcess() then
-            UDF1.CEEdit1.Text = "Not attached to Northgard.exe"
-            return
-        end
-    
         changeAddr = getChangeAddress(function_address)
         if changeAddr == -1 then
             UDF1.CEEdit1.Text = "Failed to find change address"
@@ -243,10 +248,10 @@ function UDF1_CECheckbox1Change(sender)
             writeShortInteger(varAddr, 1)
             debug_continueFromBreakpoint(co_run)
         end)
-        UDF1.CEEdit1.Text = "Successfully set breakpoint at " .. string.format("%X", changeAddr)
+        UDF1.CEEdit1.Text = "Auto accept enabled"
     else
         debug_removeBreakpoint(changeAddr)
-        UDF1.CEEdit1.Text = "Removed breakpoint at " .. string.format("%X", changeAddr)
+        UDF1.CEEdit1.Text = "Auto accept disabled"
     end
 end
 
@@ -255,16 +260,154 @@ function FormShow(sender)
     UDF1.Position = poScreenCenter
 end
 
-function FormCreate(sender)
-    changeAddr = -1
-end
-
 function CloseClick(sender)
     if changeAddr ~= -1 then
         debug_removeBreakpoint(changeAddr)
+    end
+    if changeAddr1 ~= -1 then
+        debug_removeBreakpoint(changeAddr1)
+    end
+    if changeAddr2 ~= -1 then
+        debug_removeBreakpoint(changeAddr2)
+    end
+    if changeAddr3 ~= -1 then
+        debug_removeBreakpoint(changeAddr3)
     end
     closeCE()
     return caFree
 end
 
+-- logLobbyInfo@29519
+function getLogAddress1()
+    local FUNCTION_OFFSET = 2026
+    local function_address = function_list[29519 + 1]
+    return function_address + FUNCTION_OFFSET
+end
+
+-- logUserJoined@29520
+function getLogAddress2()
+    local FUNCTION_OFFSET = 28
+    local function_address = function_list[29520 + 1]
+    return function_address + FUNCTION_OFFSET
+end
+
+-- logUserLeft@29521
+function getLogAddress3()
+    local FUNCTION_OFFSET = 28
+    local function_address = function_list[29521 + 1]
+    return function_address + FUNCTION_OFFSET
+end
+
+function parsePlayerInfo(logData)
+    -- Extract player name and ID from formats like:
+    -- "PlayerName(SomeID)" or "PlayerName(SomeID)(TeamX)"
+    local name, id = logData:match("([^(]+)%(([^)]+)%)")
+    return name, id
+end
+
+function getLogData()
+    local LOG_OFFSET = 8
+    local logAddr = readPointer(RAX + LOG_OFFSET)
+    local logData = readString(logAddr, 2000, true)
+    logData = logData:gsub(" ", "")
+    logData = logData:gsub("\t", "")
+    return logData
+end
+
+function updateQueueDisplay()
+    UDF1.CEMemo1.Lines.Clear()
+    for player, _ in pairs(queueMembers) do
+        UDF1.CEMemo1.Lines.Add(player)
+    end
+end
+
+function UDF1_CECheckbox2Change(sender)
+    if sender.Checked then
+        queueMembers = {} -- Reset queue members list
+
+        changeAddr1 = getLogAddress1()
+        if changeAddr1 == -1 then
+            UDF1.CEEdit1.Text = "Failed to find `logLobbyInfo` address"
+            return
+        end
+
+        changeAddr2 = getLogAddress2()
+        if changeAddr2 == -1 then
+            UDF1.CEEdit1.Text = "Failed to find `logUserJoined` address"
+            return
+        end
+
+        changeAddr3 = getLogAddress3()
+        if changeAddr3 == -1 then
+            UDF1.CEEdit1.Text = "Failed to find `logUserLeft` address"
+            return
+        end
+
+        debug_setBreakpoint(changeAddr1, function()
+            local logData = getLogData()
+            -- Clear previous queue state when new lobby info arrives
+            queueMembers = {}
+            -- Process each line
+            for line in logData:gmatch("[^\r\n]+") do
+                if line ~= "Members:" then
+                    local name, id = parsePlayerInfo(line)
+                    if name and id then
+                        queueMembers[name] = id
+                    end
+                end
+            end
+            updateQueueDisplay()
+            debug_continueFromBreakpoint(co_run)
+        end)
+        
+        debug_setBreakpoint(changeAddr2, function() 
+            local logData = getLogData()
+            local name, id = parsePlayerInfo(logData)
+            if name and id then
+                queueMembers[name] = id
+                updateQueueDisplay()
+            end
+            debug_continueFromBreakpoint(co_run)
+        end)
+
+        debug_setBreakpoint(changeAddr3, function() 
+            local logData = getLogData()
+            local name = parsePlayerInfo(logData)
+            if name then
+                queueMembers[name] = nil
+                updateQueueDisplay()
+            end
+            debug_continueFromBreakpoint(co_run)
+        end)
+        
+        UDF1.CEEdit1.Text = "Tracking queue enabled"
+    else
+        debug_removeBreakpoint(changeAddr1)
+        debug_removeBreakpoint(changeAddr2)
+        debug_removeBreakpoint(changeAddr3)
+        UDF1.CEEdit1.Text = "Tracking queue disabled"
+    end
+end
+
+function ClearEverything()
+    UDF1.CEMemo1.Lines.Clear()
+    UDF1.CEEdit1.Text = ""
+    UDF1.CECheckbox1.Checked = false
+    UDF1.CECheckbox2.Checked = false
+end
+
+function UDF1_CECustomButton1Click(sender)
+    ClearEverything()
+
+    if not attachToProcess() then
+        UDF1.CEEdit1.Text = "Not attached to Northgard.exe"
+        return
+    end
+
+    UpdateFunctionList()
+    UDF1.CEEdit1.Text = "Data updated"
+end
+
+
 UDF1.show()
+ClearEverything()
