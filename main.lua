@@ -279,9 +279,8 @@ end
 
 -- logLobbyInfo@29841
 function getLogAddress1()
-    local FUNCTION_OFFSET = 1205
+    local FUNCTION_OFFSET = 2026
     local function_address = function_list[29841 + 1]
-    print("logLobbyInfo@29841: " .. function_address)
     return function_address + FUNCTION_OFFSET
 end
 
@@ -289,7 +288,6 @@ end
 function getLogAddress2()
     local FUNCTION_OFFSET = 28
     local function_address = function_list[29842 + 1]
-    print("logUserJoined@29842: " .. function_address)
     return function_address + FUNCTION_OFFSET
 end
 
@@ -297,7 +295,6 @@ end
 function getLogAddress3()
     local FUNCTION_OFFSET = 28
     local function_address = function_list[29843 + 1]
-    print("logUserLeft@29843: " .. function_address)
     return function_address + FUNCTION_OFFSET
 end
 
