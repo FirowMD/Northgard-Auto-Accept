@@ -227,21 +227,21 @@ end
 
 function getChangeAddress(function_address)
     -- fn setCheckedJoin@26455 (ui.win.LobbyFinderWaiting, bool) -> void (7 regs, 12 ops)
-    local function_address = function_list[26455 + 1]
-    local MOV_OFFSET = 0xf
-    local change_addr = function_address + MOV_OFFSET
+    local HEX_PATTERN = "48 8B 81 C8 00 00 00 48 89 45 F0 48 85 C0 75 1E 48 83 EC 08 68 45 09 9F 0D 48 B8 A0 3B 00 9F CA 76 00 00 48 83 EC 20 FF D0 48 89 6C 24 F8 4C 8B 40 20 4C 89 45 F8 49 8B D0 48 B9 58 F4 7F DB CE 01 00 00 48 B8 70 06 E0 2E FB 7F 00 00 48 83 EC 20 FF D0 48 89 6C 24 F8 48 83 C4 20 48 89 45 E8"
+    -- MOV_OFFSET = 0xf
+    -- change_addr = function_address + MOV_OFFSET
 
-    return change_addr
+    -- find addr by pattern
+    local result = AOBScanUnique(HEX_PATTERN)
+    if not result then
+        return -1
+    end
+
+    return result
 end
 
 function UDF1_CECheckbox1Change(sender)
     if sender.Checked then
-        changeAddr = getChangeAddress(function_address)
-        if changeAddr == -1 then
-            UDF1.CEEdit1.Text = "Failed to find change address"
-            return
-        end
-
         debug_setBreakpoint(changeAddr, function()
             UDF1.CEEdit1.Text = "Reached target instruction at " .. string.format("%X", changeAddr)
             local varAddr = RBP + 0x18
@@ -279,23 +279,39 @@ end
 
 -- logLobbyInfo@29841
 function getLogAddress1()
-    local FUNCTION_OFFSET = 2026
-    local function_address = function_list[29841 + 1]
-    return function_address + FUNCTION_OFFSET
+    local HEX_PATTERN = "48 89 6C 24 F8 48 83 C4 20 49 BB D8 4C 01 E2 CE 01 00 00 49 8B 03 48 89 45 E0 48 89 45 F8 33 C9 89 4D CC 48 8B 55 10 48 85 D2 75 1E 48 83 EC 08 68 34 57 63 02 48 B8 A0 3B 00 9F CA 76 00 00 48 83 EC 20 FF D0 48 89 6C 24 F8 4C 8B 42 18 4C 89 45 F0 49 8B D0 48 B9 38 F4 7F DB CE 01 00 00 48"
+    -- FUNCTION_OFFSET = 2026
+
+    local result = AOBScanUnique(HEX_PATTERN)
+    if not result then
+        return -1
+    end
+
+    return result
 end
 
 -- logUserJoined@29842
 function getLogAddress2()
-    local FUNCTION_OFFSET = 28
-    local function_address = function_list[29842 + 1]
-    return function_address + FUNCTION_OFFSET
+    local HEX_PATTERN = "48 89 6C 24 F8 48 83 C4 20 48 89 45 F8 48 B9 A0 4C 01 E2 CE 01 00 00 48 8B 11 48 89 55 F0 48 8B C8 48 83 EC 20 E8 3A 70 1D FF 48 89 6C 24 F8 48 83 C4 20 48 89 45 F8 48 8B 55 10 48 85 D2 0F 85 16 00 00 00 49 B8 40 2B 00 E2 CE 01 00 00 4D 8B 08 4C 89 4D F0 E9 08 00 00 00 4C 8B 55 10 4C 89"
+    -- FUNCTION_OFFSET = 28
+    local result = AOBScanUnique(HEX_PATTERN)
+    if not result then
+        return -1
+    end
+
+    return result
 end
 
 -- logUserLeft@29843
 function getLogAddress3()
-    local FUNCTION_OFFSET = 28
-    local function_address = function_list[29843 + 1]
-    return function_address + FUNCTION_OFFSET
+    local HEX_PATTERN = "48 89 6C 24 F8 48 83 C4 20 48 89 45 F8 48 B9 F8 4C 01 E2 CE 01 00 00 48 8B 11 48 89 55 F0 48 8B C8 48 83 EC 20 E8 6A 6F 1D FF 48 89 6C 24 F8 48 83 C4 20 48 89 45 F8 48 8B 55 10 48 85 D2 0F 85 16 00 00 00 49 B8 40 2B 00 E2 CE 01 00 00 4D 8B 08 4C 89 4D F0 E9 08 00 00 00 4C 8B 55 10 4C 89"
+    -- FUNCTION_OFFSET = 28
+    local result = AOBScanUnique(HEX_PATTERN)
+    if not result then
+        return -1
+    end
+
+    return result
 end
 
 function parsePlayerInfo(logData)
@@ -324,24 +340,6 @@ end
 function UDF1_CECheckbox2Change(sender)
     if sender.Checked then
         queueMembers = {} -- Reset queue members list
-
-        changeAddr1 = getLogAddress1()
-        if changeAddr1 == -1 then
-            UDF1.CEEdit1.Text = "Failed to find `logLobbyInfo` address"
-            return
-        end
-
-        changeAddr2 = getLogAddress2()
-        if changeAddr2 == -1 then
-            UDF1.CEEdit1.Text = "Failed to find `logUserJoined` address"
-            return
-        end
-
-        changeAddr3 = getLogAddress3()
-        if changeAddr3 == -1 then
-            UDF1.CEEdit1.Text = "Failed to find `logUserLeft` address"
-            return
-        end
 
         debug_setBreakpoint(changeAddr1, function()
             local logData = getLogData()
@@ -396,6 +394,32 @@ function ClearEverything()
     UDF1.CECheckbox2.Checked = false
 end
 
+function UpdateAddresses()
+    changeAddr = getChangeAddress(function_address)
+    if changeAddr == -1 then
+        UDF1.CEEdit1.Text = "Failed to find change address"
+        return
+    end
+
+    changeAddr1 = getLogAddress1()
+    if changeAddr1 == -1 then
+        UDF1.CEEdit1.Text = "Failed to find `logLobbyInfo` address"
+        return
+    end
+
+    changeAddr2 = getLogAddress2()
+    if changeAddr2 == -1 then
+        UDF1.CEEdit1.Text = "Failed to find `logUserJoined` address"
+        return
+    end
+
+    changeAddr3 = getLogAddress3()
+    if changeAddr3 == -1 then
+        UDF1.CEEdit1.Text = "Failed to find `logUserLeft` address"
+        return
+    end
+end
+
 function UDF1_CECustomButton1Click(sender)
     ClearEverything()
 
@@ -404,7 +428,8 @@ function UDF1_CECustomButton1Click(sender)
         return
     end
 
-    UpdateFunctionList()
+    -- UpdateFunctionList()
+    UpdateAddresses()
     UDF1.CEEdit1.Text = "Data updated"
 end
 
