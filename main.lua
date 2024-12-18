@@ -226,8 +226,8 @@ function UpdateFunctionList()
 end
 
 function getChangeAddress(function_address)
-    -- fn setCheckedJoin@26452 (ui.win.LobbyFinderWaiting, bool) -> void (7 regs, 12 ops)
-    local function_address = function_list[26452 + 1]
+    -- fn setCheckedJoin@26465 (ui.win.LobbyFinderWaiting, bool) -> void (7 regs, 12 ops)
+    local function_address = function_list[26465 + 1]
     local MOV_OFFSET = 0xf
     local change_addr = function_address + MOV_OFFSET
 
@@ -277,24 +277,24 @@ function CloseClick(sender)
     return caFree
 end
 
--- fn logLobbyInfo@29838
+-- fn logLobbyInfo@29844
 function getLogAddress1()
     local FUNCTION_OFFSET = 2026
-    local function_address = function_list[29838 + 1]
+    local function_address = function_list[29844 + 1]
     return function_address + FUNCTION_OFFSET
 end
 
--- fn logUserJoined@29839
+-- fn logUserJoined@29845
 function getLogAddress2()
     local FUNCTION_OFFSET = 28
-    local function_address = function_list[29839 + 1]
+    local function_address = function_list[29845 + 1]
     return function_address + FUNCTION_OFFSET
 end
 
--- fn logUserLeft@29840
+-- fn logUserLeft@29846
 function getLogAddress3()
     local FUNCTION_OFFSET = 28
-    local function_address = function_list[29840 + 1]
+    local function_address = function_list[29846 + 1]
     return function_address + FUNCTION_OFFSET
 end
 
