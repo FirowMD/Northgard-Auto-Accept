@@ -276,6 +276,7 @@ end
 
 -- fn logLobbyInfo@29844
 function getLogAddress1()
+    local OFFSET = 2035
     local hex_pattern = "55488B??4881??????????4889????4885??75??4883????68????????48B8????????????????4883????FF??4889??????488B????4889????488B"
     local function_address = AOBScanUnique(hex_pattern)
     if function_address == nil then
@@ -283,7 +284,7 @@ function getLogAddress1()
         return -1
     end
 
-    return function_address
+    return function_address + OFFSET
 end
 
 -- fn logUserJoined@29845
@@ -310,11 +311,21 @@ function getLogAddress3()
     return function_address
 end
 
-function parsePlayerInfo(logData)
+function parsePlayerInfo(str)
     -- Extract player name and ID from formats like:
     -- "PlayerName(SomeID)" or "PlayerName(SomeID)(TeamX)"
-    local name, id = logData:match("([^(]+)%(([^)]+)%)")
-    return name, id
+    local closePos = str:match(".*()%)")
+    if not closePos then return nil end
+
+    for i = closePos - 1, 1, -1 do
+        if str:sub(i, i) == "(" then
+            local name = str:sub(1, i - 1)
+            local id = str:sub(i + 1, closePos - 1)
+            return name, id
+        end
+    end
+
+    return nil
 end
 
 function getLogData()
@@ -338,16 +349,25 @@ function UDF1_CECheckbox2Change(sender)
         queueMembers = {} -- Reset queue members list
 
         debug_setBreakpoint(changeAddr1, function()
+            local isMembers = false
             local logData = getLogData()
             -- Clear previous queue state when new lobby info arrives
             queueMembers = {}
             -- Process each line
             for line in logData:gmatch("[^\r\n]+") do
-                if line ~= "Members:" then
+                if line:find("Slots:") then
+                    isMembers = false
+                end
+                
+                if isMembers then
                     local name, id = parsePlayerInfo(line)
                     if name and id then
                         queueMembers[name] = id
                     end
+                end
+
+                if line:find("Members:") then
+                    isMembers = true
                 end
             end
             updateQueueDisplay()
@@ -366,9 +386,9 @@ function UDF1_CECheckbox2Change(sender)
 
         debug_setBreakpoint(changeAddr3, function() 
             local logData = getLogData()
-            local name = parsePlayerInfo(logData)
+            local name, id = parsePlayerInfo(logData)
             if name then
-                queueMembers[name] = nil
+                queueMembers[name] = id
                 updateQueueDisplay()
             end
             debug_continueFromBreakpoint(co_run)
