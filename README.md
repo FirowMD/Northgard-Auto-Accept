@@ -7,3 +7,14 @@ App that automatically "accepts" the confirmation window that appears when a ran
 <p align="center">
   <img src="screenshot_2.png" width="400" />
 </p>
+
+# How to run
+
+1. Launch `Northgard`
+2. Run `Cheat Engine`
+3. Open `Northgard_aa.CT` (Ctrl+O)
+4. Press `Attach to Northgard`
+
+<p align="center">
+  <img src="howto.gif" width="800" />
+</p>
