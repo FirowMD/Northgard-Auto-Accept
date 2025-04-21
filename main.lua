@@ -11,6 +11,12 @@ local changeAddr = -1
 local changeAddr1 = -1
 local changeAddr2 = -1
 local changeAddr3 = -1
+local changeAddrLobbyLog = -1
+
+local WIN_WIDTH_LOG_ON = 960
+local WIN_WIDTH_LOG_OFF = 464
+
+local windowWidth = 464
 
 function convertAddressToScanData(address)
     local addr = tonumber(address, 16)
@@ -255,6 +261,7 @@ end
 function FormShow(sender)
     UDF1.BorderStyle = bsSingle
     UDF1.Position = poScreenCenter
+    UDF1.Width = windowWidth
 end
 
 function CloseClick(sender)
@@ -272,6 +279,18 @@ function CloseClick(sender)
     end
     closeCE()
     return caFree
+end
+
+-- fn log@30253
+function getLobbyLogAddress()
+    local hex_pattern = "55488B??4883????4889????4889????4885??0F85????????B8????????88????E9????????488B????4833??8A??88????4C??????4C"
+    local function_address = AOBScanUnique(hex_pattern)
+    if function_address == nil then
+        showMessage("Failed to find change address: log")
+        return -1
+    end
+
+    return function_address
 end
 
 -- fn logLobbyInfo@29844
@@ -438,6 +457,34 @@ function ClearEverything()
     UDF1.CECheckbox2.Checked = false
 end
 
+function UDF1_CECheckbox3Change(sender)
+    if sender.Checked then
+        windowWidth = WIN_WIDTH_LOG_ON
+        UDF1.Width = windowWidth
+        debug_setBreakpoint(changeAddrLobbyLog, function()
+            local ptr = readPointer(RCX + 8)
+            local log_text = readString(ptr, 5000, true);
+            UDF1.CEMemo2.Lines.Add(log_text)
+            debug_continueFromBreakpoint(co_run)
+        end)
+        UDF1.CEEdit1.Text = "Show lobby logs"
+    else
+        windowWidth = WIN_WIDTH_LOG_OFF
+        UDF1.Width = windowWidth
+
+        debug_removeBreakpoint(changeAddrLobbyLog)
+        UDF1.CEEdit1.Text = "Stop showing lobby logs"
+    end
+end
+
+function SetupLogger()
+    changeAddrLobbyLog = getLobbyLogAddress()
+    if changeAddrLobbyLog == -1 then
+        showMessage("Failed to find change address: log")
+        return
+    end
+end
+
 function UDF1_CECustomButton1Click(sender)
     ClearEverything()
 
@@ -447,9 +494,11 @@ function UDF1_CECustomButton1Click(sender)
     end
 
     UpdateAddresses()
+    SetupLogger()
     UDF1.CEEdit1.Text = "Data updated"
 end
 
 
+UDF1.Width = windowWidth
 UDF1.show()
 ClearEverything()
